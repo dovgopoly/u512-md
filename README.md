@@ -1,5 +1,7 @@
 # The most expensive Solidity function
 
+![header](./uint512.png)
+
 ## The problem
 
 Have you ever run into a situation where a smart contract function just won't fit into an Ethereum block because it consumes too much gas? This is the story of how we tackled that very challenge!
