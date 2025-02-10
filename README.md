@@ -6,7 +6,7 @@ Have you ever run into a situation where a smart contract function just won't fi
 
 It all started during the development of the Rarimo protocol. If you aren't familiar with Rarimo, check out [this post](https://medium.com/@denys.riabtsev/national-passports-verification-with-zkp-part-1-b653f5e5c8d8) for more details. Rarimo lets users prove via ZKP they have a passport from a certain country without revealing any personal details. Today, Rarimo is working to support all types of passports worldwide!
 
-Supporting every passport type is a really challenging task because there are no strict rules for passport cryptography - each country can choose its own method. Some use RSA or ECDSA signatures combined with various hash functions like SHA-256, SHA-384, or SHA-512, and more. OpenPassport even provides a [world map](https://map.openpassport.app/) of the algorithms used in passports. For example, Peru uses only ECDSA signatures on 384-bit curves, while Brazil uses 512-bit curves.
+Supporting every passport type is a really challenging task because there are no strict rules for passport cryptography ‒ each country can choose its own method. Some use RSA or ECDSA signatures combined with various hash functions like SHA-256, SHA-384, or SHA-512, and more. OpenPassport even provides a [world map](https://map.openpassport.app/) of the algorithms used in passports. For example, Peru uses only ECDSA signatures on 384-bit curves, while Brazil uses 512-bit curves.
 
 Although it might seem easy to build a solution that supports all these algorithms since the only real difference is the size of the parameters, there's a huge problem: the EVM only supports 256-bit unsigned integers. This limitation means we cannot simply integrate an existing ECDSA library.
 
@@ -29,11 +29,11 @@ But nothing worked. Our implementation still required more than 400 billion gas 
 
 ## Uint512 library
 
-Just when we were about to give up and try one of the other options, a sudden idea struck us. We realized that we didn't need a general BigNumber library at all - we only needed 512-bit integers! With everything we had learned from working with the BigNumber library, we believed it's possible to implement our own highly optimized library for 512-bit unsigned integers.
+Just when we were about to give up and try one of the other options, a sudden idea struck us. We realized that we didn't need a general BigNumber library at all ‒ we only needed 512-bit integers! With everything we had learned from working with the BigNumber library, we believed it's possible to implement our own highly optimized library for 512-bit unsigned integers.
 
 ### Memory layout
 
-How to implement a uint512 library most efficiently? The first challenge was deciding how to store a uint512 in memory. Since the integer size is fixed, we can always use 2 memory slots - ach 256 bits - to hold a uint512. But what data type should be used?
+How to implement a uint512 library most efficiently? The first challenge was deciding how to store a uint512 in memory. Since the integer size is fixed, we can always use 2 memory slots ‒ ach 256 bits ‒ to hold a uint512. But what data type should be used?
 
 - _Structs?_ Not ideal, because when you use structs, you don't have direct control over the memory allocation. Once the "memory" variable is declared, the compiler might make an allocation for it in ways you can't manage.
 - _Bytes?_ Also not a good fit, since a bytes type requires an extra memory slot to store its length.
@@ -72,7 +72,7 @@ It turned out that for small integers, a column-by-column multiplication, as sho
 
 But when multiplying 512-bit numbers stored as two 256-bit words, we must multiply the corresponding words and handle the carries accurately. This is not as straightforward as it seems. Multiplying two 256-bit numbers can generate a huge carry, and we only have Solidity's built-in uint256 arithmetic to work with.
 
-Fortunately, this is a known problem that can be solved efficiently using the EVM's [modmul opcode](https://www.evm.codes/?fork=cancun#09). Remco Bloemen explains this approach in his article [Mathemagic finale: muldiv](https://xn--2-umb.com/21/muldiv/). We don't need the division part of his method, but the small piece of code that calculates the most significant 256 bits of the product - "huge carry". It's only three lines of code, but it packs a lot of math:
+Fortunately, this is a known problem that can be solved efficiently using the EVM's [modmul opcode](https://www.evm.codes/?fork=cancun#09). Remco Bloemen explains this approach in his article [Mathemagic finale: muldiv](https://xn--2-umb.com/21/muldiv/). We don't need the division part of his method, but the small piece of code that calculates the most significant 256 bits of the product ‒ "huge carry". It's only three lines of code, but it packs a lot of math:
 
 ```solidity
 // 512-bit multiply [prod1 prod0] = a * b
@@ -93,11 +93,11 @@ Applying this method for each inner operation brings the gas consumption of the 
 
 ### Reuse Memory
 
-While our current library works well from an algorithmic perspective, we still haven't solved the memory expansion issue completely. One major problem with the BigNumber library was that it allocates memory for every modexp precompile call. Our ECDSA algorithm, however, makes thousands of such calls, and each call uses 384 bytes of memory! This extra memory quickly adds up - and the EVM never releases it once allocated.
+While our current library works well from an algorithmic perspective, we still haven't solved the memory expansion issue completely. One major problem with the BigNumber library was that it allocates memory for every modexp precompile call. Our ECDSA algorithm, however, makes thousands of such calls, and each call uses 384 bytes of memory! This extra memory quickly adds up ‒ and the EVM never releases it once allocated.
 
 But here's the good news: once a mod operation is complete, that memory is no longer needed. So why not help the EVM reuse that memory? Instead of allocating memory every time, we can allocate it once at the beginning of a heavy function and then pass the pointer to it to each mod operation. This way, no extra memory is allocated internally. For lighter functions, we even provide a version that allocates memory internally if you don't plan on doing many operations.
 
-Another neat feature we added is assignment operations. When working with complex formulas, you don't always need to create new integer objects - you can simply assign new values to existing ones. This helps control memory usage and reduces overhead.
+Another neat feature we added is assignment operations. When working with complex formulas, you don't always need to create new integer objects ‒ you can simply assign new values to existing ones. This helps control memory usage and reduces overhead.
 
 The code example below shows how it works: first, you create a call pointer, which points to memory for internal purposes. Then, you pass this pointer into each _mod_ function so that no additional memory is allocated. You also use assignment operations so that you reuse memory and no new integers are created. This approach makes memory control much easier!
 
@@ -138,7 +138,7 @@ By applying all the optimizations, we achieved some impressive results:
 | shl               | 272 gas  |
 | shr               | 272 gas  |
 
-For the ECDSA algorithm, the 384-bit curves consume 8.9 million gas and the 512-bit curves consume 13.6 million gas - a **30,000x improvement** compared to the initial version!
+For the ECDSA algorithm, the 384-bit curves consume 8.9 million gas and the 512-bit curves consume 13.6 million gas ‒ a **30,000x improvement** compared to the initial version!
 
 ## Reference implementation
 
